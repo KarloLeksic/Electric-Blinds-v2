@@ -1,3 +1,5 @@
+#include "secrets.h"
+
 TaskHandle_t task_loop1;
 SemaphoreHandle_t lock = NULL;
 

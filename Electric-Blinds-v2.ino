@@ -31,6 +31,7 @@ void esploop1(void *pvParameters)
 
 AccelStepper stepper(1, STEP_PIN, DIR_PIN);
 
+int currentSteps;
 bool goUp = false, goDown = false;
 
 BLYNK_CONNECTED()
@@ -41,26 +42,35 @@ BLYNK_CONNECTED()
 // Move up
 BLYNK_WRITE(V2)
 {
-    Blynk.virtualWrite(V1, "Lifting");
-    moveUp();
-    Blynk.virtualWrite(V1, "Up");
+    if (param.asInt())
+    {
+        Blynk.virtualWrite(V1, "Lifting");
+        moveUp();
+        Blynk.virtualWrite(V1, "Up");
+    }
 }
 
 // Move down
 BLYNK_WRITE(V3)
 {
-    Blynk.virtualWrite(V1, "Lowering");
-    moveDown();
-    Blynk.virtualWrite(V1, "Down");
+    if (param.asInt())
+    {
+        Blynk.virtualWrite(V1, "Lowering");
+        moveDown();
+        Blynk.virtualWrite(V1, "Down");
+    }
 }
 
 // Stop
 BLYNK_WRITE(V4)
 {
-    lock_lock();
-    goUp = false;
-    goDown = false;
-    lock_unlock();
+    if (param.asInt())
+    {
+        lock_lock();
+        goUp = false;
+        goDown = false;
+        lock_unlock();
+    }
 }
 
 void setup()
@@ -68,6 +78,8 @@ void setup()
     Serial.begin(115200);
 
     EEPROM.begin(EEPROM_SIZE);
+    // currentSteps = readStepsFromEEPROM();
+    currentSteps = 0;
 
     stepper.setMaxSpeed(STEPPER_MAX_SPEED);
     stepper.setSpeed(STEPPER_MAX_SPEED);
@@ -105,22 +117,46 @@ void loop()
 
 void loop1()
 {
-    delay(1);
+    delay(100);
 
     if (goUp)
     {
-        Serial.println("Going Up");
+        if (currentSteps < STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN)
+        {
+            stepper.run();
+            currentSteps++;
+            Serial.println(currentSteps);
+        }
+        else
+        {
+            lock_lock();
+            goUp = false;
+            lock_unlock();
+        }
     }
 
     if (goDown)
     {
-        Serial.println("Going Down");
+        if (currentSteps > 0)
+        {
+            stepper.run();
+            currentSteps--;
+            Serial.println(currentSteps);
+        }
+        else
+        {
+            lock_lock();
+            goDown = false;
+            lock_unlock();
+        }
     }
 }
 
 void moveUp()
 {
-    // Serial.println("Move Up");
+    Serial.println("Move Up");
+
+    stepper.moveTo(STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN);
 
     lock_lock();
     goUp = true;
@@ -129,14 +165,16 @@ void moveUp()
 
 void moveDown()
 {
-    // Serial.println("Move Down");
+    Serial.println("Move Down");
+
+    stepper.moveTo(0);
 
     lock_lock();
     goDown = true;
     lock_unlock();
 }
 
-void writeIntToEEPROM(int value)
+void writeStepsToEEPROM(int value)
 {
     byte *p = (byte *)(void *)&value;
     for (unsigned int i = 0; i < sizeof(value); i++)
@@ -146,7 +184,7 @@ void writeIntToEEPROM(int value)
     EEPROM.commit();
 }
 
-int readIntFromEEPROM()
+int readStepsFromEEPROM()
 {
     int value = 0;
     byte *p = (byte *)(void *)&value;

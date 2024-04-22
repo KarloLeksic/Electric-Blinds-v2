@@ -31,8 +31,8 @@ void esploop1(void *pvParameters)
 
 AccelStepper stepper(1, STEP_PIN, DIR_PIN);
 
-int currentSteps;
-bool goUp = false, goDown = false;
+bool stop = false, isMoving = false;
+unsigned long lastRefreshed = 0;
 
 BLYNK_CONNECTED()
 {
@@ -44,9 +44,11 @@ BLYNK_WRITE(V2)
 {
     if (param.asInt())
     {
-        Blynk.virtualWrite(V1, "Lifting");
-        moveUp();
-        Blynk.virtualWrite(V1, "Up");
+        Serial.println("Move Up");
+        lock_lock();
+        stepper.moveTo(STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN);
+        isMoving = true;
+        lock_unlock();
     }
 }
 
@@ -55,9 +57,11 @@ BLYNK_WRITE(V3)
 {
     if (param.asInt())
     {
-        Blynk.virtualWrite(V1, "Lowering");
-        moveDown();
-        Blynk.virtualWrite(V1, "Down");
+        Serial.println("Move Down");
+        lock_lock();
+        stepper.moveTo(0);
+        isMoving = true;
+        lock_unlock();
     }
 }
 
@@ -66,9 +70,10 @@ BLYNK_WRITE(V4)
 {
     if (param.asInt())
     {
+        Serial.println("Stop");
+
         lock_lock();
-        goUp = false;
-        goDown = false;
+        stop = true;
         lock_unlock();
     }
 }
@@ -77,9 +82,7 @@ void setup()
 {
     Serial.begin(115200);
 
-    EEPROM.begin(EEPROM_SIZE);
-    // currentSteps = readStepsFromEEPROM();
-    currentSteps = 0;
+    // EEPROM.begin(EEPROM_SIZE);
 
     stepper.setMaxSpeed(STEPPER_MAX_SPEED);
     stepper.setSpeed(STEPPER_MAX_SPEED);
@@ -93,15 +96,12 @@ void setup()
 
     Blynk.begin(BLYNK_AUTH_TOKEN, WIFI_NAME, WIFI_PASSWORD);
 
-    Blynk.virtualWrite(V1, "Down");
-
     while (!Serial)
     {
         delay(1);
     }
 
-    xTaskCreatePinnedToCore(esploop1, "loop1", 10000, NULL, 1, &task_loop1, !ARDUINO_RUNNING_CORE);
-
+    xTaskCreatePinnedToCore(esploop1, "loop1", 10000, NULL, 0, &task_loop1, !ARDUINO_RUNNING_CORE);
     lock = xSemaphoreCreateMutex();
 }
 
@@ -113,64 +113,34 @@ void loop()
     {
         digitalWrite(LED_BUILTIN, LOW);
     }
+
+    lock_lock();
+    if (isMoving && millis() - lastRefreshed > BLYNK_REFRESH_INTRERVAL)
+    {
+        Blynk.virtualWrite(V5, map(stepper.currentPosition(), 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN, 0, 100));
+        lastRefreshed = millis();
+    }
+    lock_unlock();
 }
 
 void loop1()
 {
-    delay(100);
-
-    if (goUp)
+    lock_lock();
+    if (stepper.distanceToGo() != 0)
     {
-        if (currentSteps < STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN)
-        {
-            stepper.run();
-            currentSteps++;
-            Serial.println(currentSteps);
-        }
-        else
-        {
-            lock_lock();
-            goUp = false;
-            lock_unlock();
-        }
+        stepper.run();
+    }
+    else
+    {
+        isMoving = false;
     }
 
-    if (goDown)
+    if (stop)
     {
-        if (currentSteps > 0)
-        {
-            stepper.run();
-            currentSteps--;
-            Serial.println(currentSteps);
-        }
-        else
-        {
-            lock_lock();
-            goDown = false;
-            lock_unlock();
-        }
+        stepper.stop();
+
+        stop = false;
     }
-}
-
-void moveUp()
-{
-    Serial.println("Move Up");
-
-    stepper.moveTo(STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN);
-
-    lock_lock();
-    goUp = true;
-    lock_unlock();
-}
-
-void moveDown()
-{
-    Serial.println("Move Down");
-
-    stepper.moveTo(0);
-
-    lock_lock();
-    goDown = true;
     lock_unlock();
 }
 

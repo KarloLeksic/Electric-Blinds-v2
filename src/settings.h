@@ -12,10 +12,13 @@
 #define STEPPER_ACCELERATION 500
 
 // Blinds specific
-#define NUM_CIRCLES_TO_FULL_OPEN 480
+#define NUM_CIRCLES_TO_FULL_OPEN 50 // 480
 
 // EEPROM
 #define EEPROM_SIZE    4
 #define EEPROM_ADDRESS 0
+
+// Blynk refresh rate in milliseconds
+#define BLYNK_REFRESH_INTRERVAL 200
 
 #endif

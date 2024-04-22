@@ -31,7 +31,7 @@ void esploop1(void *pvParameters)
 
 AccelStepper stepper(1, STEP_PIN, DIR_PIN);
 
-bool stopPressed = false, isMoving = false;
+bool stopPressed = false, isMoving = false, syncStopedPosition = false;
 unsigned long lastRefreshed = 0;
 
 BLYNK_CONNECTED()
@@ -48,6 +48,7 @@ BLYNK_WRITE(V2)
         lock_lock();
         stepper.moveTo(STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN);
         isMoving = true;
+        syncStopedPosition = true;
         lock_unlock();
     }
 }
@@ -61,6 +62,7 @@ BLYNK_WRITE(V3)
         lock_lock();
         stepper.moveTo(0);
         isMoving = true;
+        syncStopedPosition = true;
         lock_unlock();
     }
 }
@@ -74,6 +76,7 @@ BLYNK_WRITE(V4)
 
         lock_lock();
         stopPressed = true;
+        syncStopedPosition = true;
         lock_unlock();
     }
 }
@@ -146,11 +149,15 @@ void loop1()
         isMoving = false;
     }
 
+    if (!isMoving && syncStopedPosition)
+    {
+        Blynk.virtualWrite(V6, map(stepper.currentPosition(), 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN, 0, 100));
+        syncStopedPosition = false;
+    }
+
     if (stopPressed)
     {
         stepper.stop();
-
-        Blynk.virtualWrite(V6, map(stepper.currentPosition(), 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN, 0, 100));
 
         stopPressed = false;
     }

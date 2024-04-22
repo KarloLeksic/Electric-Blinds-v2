@@ -13,4 +13,5 @@
 ## Design
 
 [Planetary gearbox - unlimited gear ratoio](https://www.youtube.com/watch?v=McfVmBNaNuA&ab_channel=Let%27sPrint) by Let's print.
-I designed rope roll as well asNEMA17 shaft extender and holder.
+
+I designed rope roll as well as NEMA17 shaft extender and holder.

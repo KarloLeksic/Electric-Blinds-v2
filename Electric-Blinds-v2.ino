@@ -31,7 +31,7 @@ void esploop1(void *pvParameters)
 
 AccelStepper stepper(1, STEP_PIN, DIR_PIN);
 
-bool stop = false, isMoving = false;
+bool stopPressed = false, isMoving = false;
 unsigned long lastRefreshed = 0;
 
 BLYNK_CONNECTED()
@@ -73,9 +73,20 @@ BLYNK_WRITE(V4)
         Serial.println("Stop");
 
         lock_lock();
-        stop = true;
+        stopPressed = true;
         lock_unlock();
     }
+}
+
+// Wanted state slider
+BLYNK_WRITE(V6)
+{
+    int wantedPercentage = param.asInt();
+    stepper.moveTo(map(param.asInt(), 0, 100, 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN));
+
+    lock_lock();
+    isMoving = true;
+    lock_unlock();
 }
 
 void setup()
@@ -135,11 +146,13 @@ void loop1()
         isMoving = false;
     }
 
-    if (stop)
+    if (stopPressed)
     {
         stepper.stop();
 
-        stop = false;
+        Blynk.virtualWrite(V6, map(stepper.currentPosition(), 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN, 0, 100));
+
+        stopPressed = false;
     }
     lock_unlock();
 }

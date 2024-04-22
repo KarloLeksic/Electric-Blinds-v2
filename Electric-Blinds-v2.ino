@@ -33,6 +33,7 @@ AccelStepper stepper(1, STEP_PIN, DIR_PIN);
 
 bool stopPressed = false, isMoving = false, syncStopedPosition = false;
 unsigned long lastRefreshed = 0;
+unsigned long currentPosition = 0;
 
 BLYNK_CONNECTED()
 {
@@ -44,7 +45,6 @@ BLYNK_WRITE(V2)
 {
     if (param.asInt())
     {
-        Serial.println("Move Up");
         lock_lock();
         stepper.moveTo(STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN);
         isMoving = true;
@@ -58,7 +58,6 @@ BLYNK_WRITE(V3)
 {
     if (param.asInt())
     {
-        Serial.println("Move Down");
         lock_lock();
         stepper.moveTo(0);
         isMoving = true;
@@ -72,8 +71,6 @@ BLYNK_WRITE(V4)
 {
     if (param.asInt())
     {
-        Serial.println("Stop");
-
         lock_lock();
         stopPressed = true;
         syncStopedPosition = true;
@@ -94,9 +91,8 @@ BLYNK_WRITE(V6)
 
 void setup()
 {
-    Serial.begin(115200);
-
     // EEPROM.begin(EEPROM_SIZE);
+    Serial.begin(115200);
 
     stepper.setMaxSpeed(STEPPER_MAX_SPEED);
     stepper.setSpeed(STEPPER_MAX_SPEED);
@@ -134,6 +130,12 @@ void loop()
         Blynk.virtualWrite(V5, map(stepper.currentPosition(), 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN, 0, 100));
         lastRefreshed = millis();
     }
+
+    if (!isMoving && syncStopedPosition)
+    {
+        Blynk.virtualWrite(V6, map(stepper.currentPosition(), 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN, 0, 100));
+        syncStopedPosition = false;
+    }
     lock_unlock();
 }
 
@@ -143,16 +145,11 @@ void loop1()
     if (stepper.distanceToGo() != 0)
     {
         stepper.run();
+        currentPosition = stepper.currentPosition();
     }
     else
     {
         isMoving = false;
-    }
-
-    if (!isMoving && syncStopedPosition)
-    {
-        Blynk.virtualWrite(V6, map(stepper.currentPosition(), 0, STEPS_PER_CIRCLE * NUM_CIRCLES_TO_FULL_OPEN, 0, 100));
-        syncStopedPosition = false;
     }
 
     if (stopPressed)

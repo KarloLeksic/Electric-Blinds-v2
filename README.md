@@ -17,7 +17,13 @@ It uses both ESP32 cores to control the stepper motor in real time over the inte
 
 In the `src/settings.h` you can adjust everything you need for the project. Be careful about `STEPPER_MAX_SPEED` and `BLYNK_REFRESH_INTRERVAL`. Don't put high speed and too high refresh rate in the application.
 
+## Secrets
+
+In the `src/secrets.h` put your WiFi credentials and Blynk template-specific data.
+
 ## Blynk datastreams
+
+In your Blynk application set virtual pins as follows:
 
 | Pin | Usage |
 | --- | --- |
